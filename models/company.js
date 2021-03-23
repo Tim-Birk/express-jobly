@@ -49,7 +49,7 @@ class Company {
 
   static async findAll(filter) {
     const sqlWhere = getSqlWhereCompanyFilters(filter ? filter : {});
-    console.log(sqlWhere);
+
     const companiesRes = await db.query(
       `SELECT handle,
                   name,
