@@ -12,7 +12,8 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "config.js"
-    ]
+    ],
+    "testTimeout": 100000
   },
   "keywords": [],
   "author": "",

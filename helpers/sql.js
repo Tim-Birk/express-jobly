@@ -64,4 +64,37 @@ function getSqlWhereCompanyFilters(filter) {
   return sqlFilter;
 }
 
-module.exports = { sqlForPartialUpdate, getSqlWhereCompanyFilters };
+/* Accepts
+ *   filter: object from route query that has keys and values to filter SQL query by
+ * Returns
+ *   sqlFilter:  string that will be the WHERE clause added to the SQL query based on filter parameters
+ */
+function getSqlWhereJobFilters(filter) {
+  const { title, minSalary, hasEquity } = filter;
+
+  let sqlFilter = '';
+  // If any filter exists, build WHERE Clause
+  if (title || minSalary || hasEquity) {
+    // Create SQL statement for each filter as it would appear in WHERE Clause (if exists)
+    let titleSql = title ? `title ILIKE '%${title}%'` : '';
+    let minSalarySql = minSalary
+      ? `${titleSql ? 'AND ' : ''}salary >= ${minSalary}`
+      : '';
+    let hasEquitySql = hasEquity
+      ? `${titleSql || minSalarySql ? 'AND ' : ''}equity > 0`
+      : '';
+
+    // Concatenate filter statements into one WHERE clause string
+    sqlFilter = `
+        WHERE
+          ${titleSql} ${minSalarySql} ${hasEquitySql}
+      `;
+  }
+  return sqlFilter;
+}
+
+module.exports = {
+  sqlForPartialUpdate,
+  getSqlWhereCompanyFilters,
+  getSqlWhereJobFilters,
+};
