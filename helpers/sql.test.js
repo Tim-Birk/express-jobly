@@ -1,4 +1,8 @@
-const { sqlForPartialUpdate, getSqlWhereCompanyFilters } = require('./sql');
+const {
+  sqlForPartialUpdate,
+  getSqlWhereCompanyFilters,
+  getSqlWhereJobFilters,
+} = require('./sql');
 const { BadRequestError } = require('../expressError');
 
 describe('sqlForPartialUpdate', function () {
@@ -136,4 +140,102 @@ describe('getSqlWhereCompanyFilters', function () {
       expect(err instanceof BadRequestError).toBeTruthy();
     }
   });
+});
+
+describe('getSqlWhereJobFilters', function () {
+  const testFilters = [
+    {
+      filterName: 'allFilters',
+      filter: {
+        title: 'ie',
+        minSalary: 80000,
+        hasEquity: true,
+      },
+      expectedResult: `
+      WHERE
+        title ILIKE '%ie%' AND salary >= 80000 AND equity > 0
+    `,
+    },
+    {
+      filterName: 'title and minSalary',
+      filter: {
+        title: 'ie',
+        minSalary: 80000,
+      },
+      expectedResult: `
+      WHERE
+          title ILIKE '%ie%' AND salary >= 80000
+    `,
+    },
+    {
+      filterName: 'title and hasEquity',
+      filter: {
+        title: 'ie',
+        hasEquity: true,
+      },
+      expectedResult: `
+      WHERE
+          title ILIKE '%ie%'  AND equity > 0
+    `,
+    },
+    {
+      filterName: 'minSalary and hasEquity',
+      filter: {
+        minSalary: 80000,
+        hasEquity: true,
+      },
+      expectedResult: `
+      WHERE
+           salary >= 80000 AND equity > 0
+    `,
+    },
+    {
+      filterName: 'title only',
+      filter: {
+        title: 'ie',
+      },
+      expectedResult: `
+      WHERE
+          title ILIKE '%ie%'
+    `,
+    },
+    {
+      filterName: 'minSalary only',
+      filter: {
+        minSalary: 80000,
+      },
+      expectedResult: `
+      WHERE
+           salary >= 80000
+    `,
+    },
+    {
+      filterName: 'hasEquity only',
+      filter: {
+        hasEquity: true,
+      },
+      expectedResult: `
+      WHERE
+            equity > 0
+    `,
+    },
+    {
+      filterName: 'no filters',
+      filter: {},
+      expectedResult: ``,
+    },
+    {
+      filterName: 'filters that do not exist',
+      filter: { cats: 12, dog: 'sparky' },
+      expectedResult: ``,
+    },
+  ];
+  for (testFilter of testFilters) {
+    test(`works: ${testFilter.filterName}`, function () {
+      const sqlWhere = getSqlWhereJobFilters(testFilter.filter);
+      expect(sqlWhere.replace(/\s+/g, ' ').trim()).toEqual(
+        testFilter.expectedResult.replace(/\s+/g, ' ').trim()
+      );
+    });
+  }
 });
