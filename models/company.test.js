@@ -3,6 +3,7 @@
 const db = require('../db.js');
 const { BadRequestError, NotFoundError } = require('../expressError');
 const Company = require('./company.js');
+const Job = require('./job.js');
 const {
   commonBeforeAll,
   commonBeforeEach,
@@ -141,7 +142,7 @@ describe('findAll', function () {
 /************************************** get */
 
 describe('get', function () {
-  test('works', async function () {
+  test('works: no jobs', async function () {
     let company = await Company.get('c1');
     expect(company).toEqual({
       handle: 'c1',
@@ -149,6 +150,27 @@ describe('get', function () {
       description: 'Desc1',
       numEmployees: 1,
       logoUrl: 'http://c1.img',
+      jobs: [],
+    });
+  });
+  test('works: with jobs', async function () {
+    let job = await Job.create({
+      title: 'New Jobby',
+      salary: 115000,
+      equity: 0.15,
+      companyHandle: 'c1',
+    });
+
+    let company = await Company.get('c1');
+    expect(company).toEqual({
+      handle: 'c1',
+      name: 'C1',
+      description: 'Desc1',
+      numEmployees: 1,
+      logoUrl: 'http://c1.img',
+      jobs: [
+        { id: job.id, title: job.title, salary: job.salary, equity: '0.15' },
+      ],
     });
   });
 
