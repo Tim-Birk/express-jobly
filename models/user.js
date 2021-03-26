@@ -1,15 +1,15 @@
-"use strict";
+'use strict';
 
-const db = require("../db");
-const bcrypt = require("bcrypt");
-const { sqlForPartialUpdate } = require("../helpers/sql");
+const db = require('../db');
+const bcrypt = require('bcrypt');
+const { sqlForPartialUpdate } = require('../helpers/sql');
 const {
   NotFoundError,
   BadRequestError,
   UnauthorizedError,
-} = require("../expressError");
+} = require('../expressError');
 
-const { BCRYPT_WORK_FACTOR } = require("../config.js");
+const { BCRYPT_WORK_FACTOR } = require('../config.js');
 
 /** Related functions for users. */
 
@@ -24,7 +24,7 @@ class User {
   static async authenticate(username, password) {
     // try to find the user first
     const result = await db.query(
-          `SELECT username,
+      `SELECT username,
                   password,
                   first_name AS "firstName",
                   last_name AS "lastName",
@@ -32,7 +32,7 @@ class User {
                   is_admin AS "isAdmin"
            FROM users
            WHERE username = $1`,
-        [username],
+      [username]
     );
 
     const user = result.rows[0];
@@ -46,7 +46,7 @@ class User {
       }
     }
 
-    throw new UnauthorizedError("Invalid username/password");
+    throw new UnauthorizedError('Invalid username/password');
   }
 
   /** Register user with data.
@@ -56,13 +56,19 @@ class User {
    * Throws BadRequestError on duplicates.
    **/
 
-  static async register(
-      { username, password, firstName, lastName, email, isAdmin }) {
+  static async register({
+    username,
+    password,
+    firstName,
+    lastName,
+    email,
+    isAdmin,
+  }) {
     const duplicateCheck = await db.query(
-          `SELECT username
+      `SELECT username
            FROM users
            WHERE username = $1`,
-        [username],
+      [username]
     );
 
     if (duplicateCheck.rows[0]) {
@@ -72,7 +78,7 @@ class User {
     const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
 
     const result = await db.query(
-          `INSERT INTO users
+      `INSERT INTO users
            (username,
             password,
             first_name,
@@ -81,14 +87,7 @@ class User {
             is_admin)
            VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING username, first_name AS "firstName", last_name AS "lastName", email, is_admin AS "isAdmin"`,
-        [
-          username,
-          hashedPassword,
-          firstName,
-          lastName,
-          email,
-          isAdmin,
-        ],
+      [username, hashedPassword, firstName, lastName, email, isAdmin]
     );
 
     const user = result.rows[0];
@@ -98,18 +97,22 @@ class User {
 
   /** Find all users.
    *
-   * Returns [{ username, first_name, last_name, email, is_admin }, ...]
+   * Returns [{ username, first_name, last_name, email, is_admin, jobs: [job_id, ..., ...] }, ...]
    **/
 
   static async findAll() {
     const result = await db.query(
-          `SELECT username,
-                  first_name AS "firstName",
-                  last_name AS "lastName",
-                  email,
-                  is_admin AS "isAdmin"
-           FROM users
-           ORDER BY username`,
+      `SELECT 
+        u.username,
+        u.first_name AS "firstName",
+        u.last_name AS "lastName",
+        u.email,
+        u.is_admin AS "isAdmin",
+        COALESCE(json_agg(a.job_id) FILTER (WHERE a.job_id IS NOT NULL), '[]') AS jobs 
+      FROM users u
+      LEFT JOIN applications a ON u.username = a.username
+      GROUP BY u.username, first_name, last_name, u.email, is_admin
+      ORDER BY username`
     );
 
     return result.rows;
@@ -125,14 +128,14 @@ class User {
 
   static async get(username) {
     const userRes = await db.query(
-          `SELECT username,
+      `SELECT username,
                   first_name AS "firstName",
                   last_name AS "lastName",
                   email,
                   is_admin AS "isAdmin"
            FROM users
            WHERE username = $1`,
-        [username],
+      [username]
     );
 
     const user = userRes.rows[0];
@@ -164,14 +167,12 @@ class User {
       data.password = await bcrypt.hash(data.password, BCRYPT_WORK_FACTOR);
     }
 
-    const { setCols, values } = sqlForPartialUpdate(
-        data,
-        {
-          firstName: "first_name",
-          lastName: "last_name",
-          isAdmin: "is_admin",
-        });
-    const usernameVarIdx = "$" + (values.length + 1);
+    const { setCols, values } = sqlForPartialUpdate(data, {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      isAdmin: 'is_admin',
+    });
+    const usernameVarIdx = '$' + (values.length + 1);
 
     const querySql = `UPDATE users 
                       SET ${setCols} 
@@ -194,17 +195,47 @@ class User {
 
   static async remove(username) {
     let result = await db.query(
-          `DELETE
+      `DELETE
            FROM users
            WHERE username = $1
            RETURNING username`,
-        [username],
+      [username]
     );
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
   }
-}
 
+  /** Creates job application for user.
+   *
+   * Returns { username, jobId }
+   *
+   **/
+
+  static async apply(username, job_id) {
+    const found = await db.query(
+      `SELECT * FROM applications WHERE username = '${username}' AND job_id = ${job_id}`
+    );
+    if (found.rows[0]) {
+      throw new BadRequestError(
+        `Duplicate application - user: ${username}, jobId: ${job_id}`
+      );
+    }
+    const result = await db.query(
+      `INSERT INTO applications
+         (username,
+          job_id)
+         VALUES ($1, $2)
+         RETURNING username, job_id AS "jobId"`,
+      [username, job_id]
+    );
+
+    const application = result.rows[0];
+    if (!application)
+      throw new NotFoundError(`Invalid username/job_id combination`);
+
+    return application;
+  }
+}
 
 module.exports = User;

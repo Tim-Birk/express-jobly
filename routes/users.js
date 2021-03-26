@@ -46,6 +46,35 @@ router.post('/', ensureLoggedIn, ensureAdmin, async function (req, res, next) {
   }
 });
 
+/** POST /users/:username/jobs/:id
+ *
+ * Creates a job application for a user
+ *
+ * Returns
+ *  {applied: jobId }
+ *
+ * Authorization required: login, admin
+ **/
+
+router.post(
+  '/:username/jobs/:id',
+  ensureLoggedIn,
+  ensureAdmin,
+  async function (req, res, next) {
+    try {
+      const { username, id } = req.params;
+
+      if (!username || !id) {
+        throw new BadRequestError('Missing username/job_id');
+      }
+      const application = await User.apply(username, id);
+      return res.status(201).json({ applied: application.jobId });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 /** GET / => { users: [ {username, firstName, lastName, email }, ... ] }
  *
  * Returns list of all users.

@@ -176,17 +176,6 @@ describe('GET /companies', function () {
 
 describe('GET /companies/:handle', function () {
   test('works for anon', async function () {
-    // const newJob = {
-    //   title: 'New Jobby',
-    //   salary: 115000,
-    //   equity: 0.15,
-    //   companyHandle: 'c1',
-    // };
-    // await request(app)
-    //   .post('/jobs')
-    //   .send(newJob)
-    //   .set('authorization', `Bearer ${adminToken}`);
-
     const resp = await request(app).get(`/companies/c1`);
     expect(resp.body).toEqual({
       company: {

@@ -5,6 +5,7 @@ const request = require('supertest');
 const db = require('../db.js');
 const app = require('../app');
 const User = require('../models/user');
+const Job = require('../models/job');
 
 const {
   commonBeforeAll,
@@ -129,7 +130,16 @@ describe('POST /users', function () {
 /************************************** GET /users */
 
 describe('GET /users', function () {
+  const newjob = {
+    title: 'Test Job',
+    salary: 75000,
+    equity: 0.1,
+    companyHandle: 'c2',
+  };
   test('works for admin users', async function () {
+    let job = await Job.create(newjob);
+    await User.apply('u1', job.id);
+
     const resp = await request(app)
       .get('/users')
       .set('authorization', `Bearer ${adminToken}`);
@@ -141,6 +151,7 @@ describe('GET /users', function () {
           lastName: 'U1L',
           email: 'user1@user.com',
           isAdmin: false,
+          jobs: [job.id],
         },
         {
           username: 'u2',
@@ -148,6 +159,7 @@ describe('GET /users', function () {
           lastName: 'U2L',
           email: 'user2@user.com',
           isAdmin: false,
+          jobs: [],
         },
         {
           username: 'u3',
@@ -155,6 +167,7 @@ describe('GET /users', function () {
           lastName: 'U3L',
           email: 'user3@user.com',
           isAdmin: false,
+          jobs: [],
         },
       ],
     });
@@ -401,5 +414,40 @@ describe('DELETE /users/:username', function () {
       .delete(`/users/nope`)
       .set('authorization', `Bearer ${adminToken}`);
     expect(resp.statusCode).toEqual(404);
+  });
+});
+
+/************************************** POST /users/:username/jobs/:id */
+
+describe('POST /users/:username/jobs/:id', function () {
+  const newjob = {
+    title: 'Test Job',
+    salary: 75000,
+    equity: 0.1,
+    companyHandle: 'c2',
+  };
+  test('works for admin users', async function () {
+    let job = await Job.create(newjob);
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${job.id}`)
+      .set('authorization', `Bearer ${adminToken}`);
+    expect(resp.statusCode).toEqual(201);
+    expect(resp.body).toEqual({
+      applied: job.id,
+    });
+  });
+
+  test('not ok for non-admin users', async function () {
+    let job = await Job.create(newjob);
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${job.id}`)
+      .set('authorization', `Bearer ${u1Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test('unauth for anon', async function () {
+    let job = await Job.create(newjob);
+    const resp = await request(app).post(`/users/u1/jobs/${job.id}`);
+    expect(resp.statusCode).toEqual(401);
   });
 });
